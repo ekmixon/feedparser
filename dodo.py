@@ -50,10 +50,8 @@ def task_build():
 def task_test():
     """Run the unit tests."""
 
-    env = {k: v for k, v in os.environ.items()}
-    env.update({
-        'PY_COLORS': '1',
-    })
+    env = dict(os.environ.items())
+    env['PY_COLORS'] = '1'
 
     return {
         'actions': [
@@ -73,13 +71,12 @@ def remove_dist_files():
 def task_test_release():
     """Upload to test.pypi.org."""
 
-    # Generate random suffixes to help prevent name and version conflicts
-    # on PyPI. These environment variables are used in `setup.py`.
-    env = {k: v for k, v in os.environ.items()}
-    env.update({
-        'NAME_SUFFIX': ''.join(chr(i) for i in random.sample(range(0x61, 0x61+26), 10)),
+    env = dict(os.environ.items()) | {
+        'NAME_SUFFIX': ''.join(
+            chr(i) for i in random.sample(range(0x61, 0x61 + 26), 10)
+        ),
         'VERSION_SUFFIX': str(random.choice(range(1, 1000))),
-    })
+    }
 
     return {
         'actions': [

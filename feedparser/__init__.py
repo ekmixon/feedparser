@@ -37,7 +37,10 @@ __version__ = '6.0.8'
 # HTTP "User-Agent" header to send to servers when downloading feeds.
 # If you are embedding feedparser in a larger application, you should
 # change this to your application name and URL.
-USER_AGENT = "feedparser/%s +https://github.com/kurtmckee/feedparser/" % __version__
+USER_AGENT = (
+    f"feedparser/{__version__} +https://github.com/kurtmckee/feedparser/"
+)
+
 
 # If you want feedparser to automatically resolve all relative URIs, set this
 # to 1.

@@ -84,10 +84,7 @@ def _parse_date_iso8601(date_string):
         return
     params = m.groupdict()
     ordinal = params.get('ordinal', 0)
-    if ordinal:
-        ordinal = int(ordinal)
-    else:
-        ordinal = 0
+    ordinal = int(ordinal) if ordinal else 0
     year = params.get('year', '--')
     if not year or year == '--':
         year = time.gmtime()[0]
@@ -98,25 +95,18 @@ def _parse_date_iso8601(date_string):
         year = int(year)
     month = params.get('month', '-')
     if not month or month == '-':
-        # ordinals are NOT normalized by mktime, we simulate them
-        # by setting month=1, day=ordinal
-        if ordinal:
-            month = 1
-        else:
-            month = time.gmtime()[1]
+        month = 1 if ordinal else time.gmtime()[1]
     month = int(month)
     day = params.get('day', 0)
-    if not day:
-        # see above
-        if ordinal:
-            day = ordinal
-        elif params.get('century', 0) or \
-                 params.get('year', 0) or params.get('month', 0):
-            day = 1
-        else:
-            day = time.gmtime()[2]
-    else:
+    if day:
         day = int(day)
+    elif ordinal:
+        day = ordinal
+    elif params.get('century', 0) or \
+             params.get('year', 0) or params.get('month', 0):
+        day = 1
+    else:
+        day = time.gmtime()[2]
     # special case of the century - is the first year of the 21st century
     # 2000 or 2001 ? The debate goes on...
     if 'century' in params:

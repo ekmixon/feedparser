@@ -52,21 +52,22 @@ class StrictXMLParser:
         prefix = prefix or None
         self.track_namespace(prefix, uri)
         if prefix and uri == 'http://www.w3.org/1999/xlink':
-            self.decls['xmlns:' + prefix] = uri
+            self.decls[f'xmlns:{prefix}'] = uri
 
     def startElementNS(self, name, qname, attrs):
         namespace, localname = name
         lowernamespace = str(namespace or '').lower()
-        if lowernamespace.find('backend.userland.com/rss') != -1:
+        if 'backend.userland.com/rss' in lowernamespace:
             # match any backend.userland.com namespace
             namespace = 'http://backend.userland.com/rss'
             lowernamespace = namespace
-        if qname and qname.find(':') > 0:
-            givenprefix = qname.split(':')[0]
-        else:
-            givenprefix = None
+        givenprefix = qname.split(':')[0] if qname and qname.find(':') > 0 else None
         prefix = self._matchnamespaces.get(lowernamespace, givenprefix)
-        if givenprefix and (prefix is None or (prefix == '' and lowernamespace == '')) and givenprefix not in self.namespaces_in_use:
+        if (
+            givenprefix
+            and (prefix is None or prefix == '' and not lowernamespace)
+            and givenprefix not in self.namespaces_in_use
+        ):
             raise UndeclaredNamespace("'%s' is not associated with a namespace" % givenprefix)
         localname = str(localname).lower()
 
@@ -84,18 +85,17 @@ class StrictXMLParser:
             attrsD['xmlns'] = namespace
 
         if prefix:
-            localname = prefix.lower() + ':' + localname
+            localname = f'{prefix.lower()}:{localname}'
         elif namespace and not qname:  # Expat
             for name, value in self.namespaces_in_use.items():
                 if name and value == namespace:
-                    localname = name + ':' + localname
+                    localname = f'{name}:{localname}'
                     break
 
         for (namespace, attrlocalname), attrvalue in attrs.items():
             lowernamespace = (namespace or '').lower()
-            prefix = self._matchnamespaces.get(lowernamespace, '')
-            if prefix:
-                attrlocalname = prefix + ':' + attrlocalname
+            if prefix := self._matchnamespaces.get(lowernamespace, ''):
+                attrlocalname = f'{prefix}:{attrlocalname}'
             attrsD[str(attrlocalname).lower()] = attrvalue
         for qname in attrs.getQNames():
             attrsD[str(qname).lower()] = attrs.getValueByQName(qname)
@@ -108,17 +108,13 @@ class StrictXMLParser:
     def endElementNS(self, name, qname):
         namespace, localname = name
         lowernamespace = str(namespace or '').lower()
-        if qname and qname.find(':') > 0:
-            givenprefix = qname.split(':')[0]
-        else:
-            givenprefix = ''
-        prefix = self._matchnamespaces.get(lowernamespace, givenprefix)
-        if prefix:
-            localname = prefix + ':' + localname
+        givenprefix = qname.split(':')[0] if qname and qname.find(':') > 0 else ''
+        if prefix := self._matchnamespaces.get(lowernamespace, givenprefix):
+            localname = f'{prefix}:{localname}'
         elif namespace and not qname:  # Expat
             for name, value in self.namespaces_in_use.items():
                 if name and value == namespace:
-                    localname = name + ':' + localname
+                    localname = f'{name}:{localname}'
                     break
         localname = str(localname).lower()
         self.unknown_endtag(localname)

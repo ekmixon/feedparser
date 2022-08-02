@@ -58,24 +58,20 @@ class Namespace(object):
         context['where'].update(geometry)
 
     def _end_georss_point(self):
-        geometry = _parse_georss_point(self.pop('geometry'))
-        if geometry:
+        if geometry := _parse_georss_point(self.pop('geometry')):
             self._save_where(geometry)
 
     def _end_georss_line(self):
-        geometry = _parse_georss_line(self.pop('geometry'))
-        if geometry:
+        if geometry := _parse_georss_line(self.pop('geometry')):
             self._save_where(geometry)
 
     def _end_georss_polygon(self):
         this = self.pop('geometry')
-        geometry = _parse_georss_polygon(this)
-        if geometry:
+        if geometry := _parse_georss_polygon(this):
             self._save_where(geometry)
 
     def _end_georss_box(self):
-        geometry = _parse_georss_box(self.pop('geometry'))
-        if geometry:
+        if geometry := _parse_georss_box(self.pop('geometry')):
             self._save_where(geometry)
 
     def _start_where(self, attrs_d):
@@ -126,9 +122,8 @@ class Namespace(object):
         swap = True
         if srs_name and "EPSG" in srs_name:
             epsg = int(srs_name.split(":")[-1])
-            swap = bool(epsg in _geogCS)
-        geometry = _parse_georss_point(this, swap=swap, dims=srs_dimension)
-        if geometry:
+            swap = epsg in _geogCS
+        if geometry := _parse_georss_point(this, swap=swap, dims=srs_dimension):
             self._save_where(geometry)
 
     def _start_gml_poslist(self, attrs_d):
@@ -142,10 +137,10 @@ class Namespace(object):
         swap = True
         if srs_name and "EPSG" in srs_name:
             epsg = int(srs_name.split(":")[-1])
-            swap = bool(epsg in _geogCS)
-        geometry = _parse_poslist(
-            this, self.ingeometry, swap=swap, dims=srs_dimension)
-        if geometry:
+            swap = epsg in _geogCS
+        if geometry := _parse_poslist(
+            this, self.ingeometry, swap=swap, dims=srs_dimension
+        ):
             self._save_where(geometry)
 
     def _end_geom(self):
@@ -219,9 +214,7 @@ def _parse_georss_polygon(value, swap=True, dims=2):
         ring = list(_gen_georss_coords(value, swap, dims))
     except (IndexError, ValueError):
         return None
-    if len(ring) < 4:
-        return None
-    return {'type': 'Polygon', 'coordinates': (ring,)}
+    return None if len(ring) < 4 else {'type': 'Polygon', 'coordinates': (ring,)}
 
 
 def _parse_georss_box(value, swap=True, dims=2):

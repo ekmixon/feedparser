@@ -237,9 +237,8 @@ class XMLParserMixin(
         elif lang is None:
             # if no xml:lang is specified, use parent lang
             lang = self.lang
-        if lang:
-            if tag in ('feed', 'rss', 'rdf:RDF'):
-                self.feeddata['language'] = lang.replace('_', '-')
+        if lang and tag in ('feed', 'rss', 'rdf:RDF'):
+            self.feeddata['language'] = lang.replace('_', '-')
         self.lang = lang
         self.basestack.append(self.baseuri)
         self.langstack.append(lang)
@@ -267,16 +266,13 @@ class XMLParserMixin(
                     attrs.append(('xmlns', namespace))
             if tag == 'svg':
                 self.svgOK += 1
-            return self.handle_data('<%s%s>' % (tag, self.strattrs(attrs)), escape=0)
+            return self.handle_data(f'<{tag}{self.strattrs(attrs)}>', escape=0)
 
         # match namespaces
-        if tag.find(':') != -1:
-            prefix, suffix = tag.split(':', 1)
-        else:
-            prefix, suffix = '', tag
+        prefix, suffix = tag.split(':', 1) if tag.find(':') != -1 else ('', tag)
         prefix = self.namespacemap.get(prefix, prefix)
         if prefix:
-            prefix = prefix + '_'
+            prefix = f'{prefix}_'
 
         # Special hack for better tracking of empty textinput/image elements in
         # illformed feeds.
@@ -286,7 +282,7 @@ class XMLParserMixin(
             self.inimage = 0
 
         # call special handler (if defined) or default handler
-        methodname = '_start_' + prefix + suffix
+        methodname = f'_start_{prefix}{suffix}'
         try:
             method = getattr(self, methodname)
             return method(attrs_d)
@@ -294,28 +290,24 @@ class XMLParserMixin(
             # Since there's no handler or something has gone wrong we
             # explicitly add the element and its attributes.
             unknown_tag = prefix + suffix
-            if len(attrs_d) == 0:
+            if not attrs_d:
                 # No attributes so merge it into the enclosing dictionary
                 return self.push(unknown_tag, 1)
-            else:
-                # Has attributes so create it in its own dictionary
-                context = self._get_context()
-                context[unknown_tag] = attrs_d
+            # Has attributes so create it in its own dictionary
+            context = self._get_context()
+            context[unknown_tag] = attrs_d
 
     def unknown_endtag(self, tag):
         # match namespaces
-        if tag.find(':') != -1:
-            prefix, suffix = tag.split(':', 1)
-        else:
-            prefix, suffix = '', tag
+        prefix, suffix = tag.split(':', 1) if tag.find(':') != -1 else ('', tag)
         prefix = self.namespacemap.get(prefix, prefix)
         if prefix:
-            prefix = prefix + '_'
+            prefix = f'{prefix}_'
         if suffix == 'svg' and self.svgOK:
             self.svgOK -= 1
 
         # call special handler (if defined) or default handler
-        methodname = '_end_' + prefix + suffix
+        methodname = f'_end_{prefix}{suffix}'
         try:
             if self.svgOK:
                 raise AttributeError()
@@ -332,17 +324,17 @@ class XMLParserMixin(
             self.contentparams['type'] = 'application/xhtml+xml'
         if self.incontent and self.contentparams.get('type') == 'application/xhtml+xml':
             tag = tag.split(':')[-1]
-            self.handle_data('</%s>' % tag, escape=0)
+            self.handle_data(f'</{tag}>', escape=0)
 
         # track xml:base and xml:lang going out of scope
         if self.basestack:
             self.basestack.pop()
-            if self.basestack and self.basestack[-1]:
-                self.baseuri = self.basestack[-1]
+        if self.basestack and self.basestack[-1]:
+            self.baseuri = self.basestack[-1]
         if self.langstack:
             self.langstack.pop()
-            if self.langstack:  # and (self.langstack[-1] is not None):
-                self.lang = self.langstack[-1]
+        if self.langstack:  # and (self.langstack[-1] is not None):
+            self.lang = self.langstack[-1]
 
         self.depth -= 1
 
@@ -352,12 +344,9 @@ class XMLParserMixin(
             return
         ref = ref.lower()
         if ref in ('34', '38', '39', '60', '62', 'x22', 'x26', 'x27', 'x3c', 'x3e'):
-            text = '&#%s;' % ref
+            text = f'&#{ref};'
         else:
-            if ref[0] == 'x':
-                c = int(ref[1:], 16)
-            else:
-                c = int(ref)
+            c = int(ref[1:], 16) if ref[0] == 'x' else int(ref)
             text = chr(c).encode('utf-8')
         self.elementstack[-1][2].append(text)
 
@@ -366,7 +355,7 @@ class XMLParserMixin(
         if not self.elementstack:
             return
         if ref in ('lt', 'gt', 'quot', 'amp', 'apos'):
-            text = '&%s;' % ref
+            text = f'&{ref};'
         elif ref in self.entities:
             text = self.entities[ref]
             if text.startswith('&#') and text.endswith(';'):
@@ -375,7 +364,7 @@ class XMLParserMixin(
             try:
                 html.entities.name2codepoint[ref]
             except KeyError:
-                text = '&%s;' % ref
+                text = f'&{ref};'
             else:
                 text = chr(html.entities.name2codepoint[ref]).encode('utf-8')
         self.elementstack[-1][2].append(text)
@@ -412,16 +401,12 @@ class XMLParserMixin(
             return k+3
         else:
             k = self.rawdata.find('>', i)
-            if k >= 0:
-                return k+1
-            else:
-                # We have an incomplete CDATA block.
-                return k
+            return k+1 if k >= 0 else k
 
     @staticmethod
     def map_content_type(content_type):
         content_type = content_type.lower()
-        if content_type == 'text' or content_type == 'plain':
+        if content_type in ['text', 'plain']:
             content_type = 'text/plain'
         elif content_type == 'html':
             content_type = 'text/html'
@@ -513,10 +498,12 @@ class XMLParserMixin(
                 pass
 
         # resolve relative URIs
-        if (element in self.can_be_relative_uri) and output:
-            # do not resolve guid elements with isPermalink="false"
-            if not element == 'id' or self.guidislink:
-                output = self.resolve_uri(output)
+        if (
+            (element in self.can_be_relative_uri)
+            and output
+            and (element != 'id' or self.guidislink)
+        ):
+            output = self.resolve_uri(output)
 
         # decode entities within embedded markup
         if not self.contentparams.get('base64', 0):
@@ -524,9 +511,12 @@ class XMLParserMixin(
 
         # some feed formats require consumers to guess
         # whether the content is html or plain text
-        if not self.version.startswith('atom') and self.contentparams.get('type') == 'text/plain':
-            if self.looks_like_html(output):
-                self.contentparams['type'] = 'text/html'
+        if (
+            not self.version.startswith('atom')
+            and self.contentparams.get('type') == 'text/plain'
+            and self.looks_like_html(output)
+        ):
+            self.contentparams['type'] = 'text/html'
 
         # remove temporary cruft from contentparams
         try:
@@ -540,14 +530,20 @@ class XMLParserMixin(
 
         is_htmlish = self.map_content_type(self.contentparams.get('type', 'text/html')) in self.html_types
         # resolve relative URIs within embedded markup
-        if is_htmlish and self.resolve_relative_uris:
-            if element in self.can_contain_relative_uris:
-                output = resolve_relative_uris(output, self.baseuri, self.encoding, self.contentparams.get('type', 'text/html'))
+        if (
+            is_htmlish
+            and self.resolve_relative_uris
+            and element in self.can_contain_relative_uris
+        ):
+            output = resolve_relative_uris(output, self.baseuri, self.encoding, self.contentparams.get('type', 'text/html'))
 
         # sanitize embedded markup
-        if is_htmlish and self.sanitize_html:
-            if element in self.can_contain_dangerous_markup:
-                output = sanitize_html(output, self.encoding, self.contentparams.get('type', 'text/html'))
+        if (
+            is_htmlish
+            and self.sanitize_html
+            and element in self.can_contain_dangerous_markup
+        ):
+            output = sanitize_html(output, self.encoding, self.contentparams.get('type', 'text/html'))
 
         if self.encoding and isinstance(output, bytes):
             output = output.decode(self.encoding, 'ignore')
@@ -599,7 +595,7 @@ class XMLParserMixin(
                 if self.incontent:
                     contentparams = copy.deepcopy(self.contentparams)
                     contentparams['value'] = output
-                    self.entries[-1][element + '_detail'] = contentparams
+                    self.entries[-1][f'{element}_detail'] = contentparams
         elif self.infeed or self.insource:  # and (not self.intextinput) and (not self.inimage):
             context = self._get_context()
             if element == 'description':
@@ -613,7 +609,7 @@ class XMLParserMixin(
             elif self.incontent:
                 contentparams = copy.deepcopy(self.contentparams)
                 contentparams['value'] = output
-                context[element + '_detail'] = contentparams
+                context[f'{element}_detail'] = contentparams
         return output
 
     def push_content(self, tag, attrs_d, default_content_type, expecting_text):
@@ -645,7 +641,7 @@ class XMLParserMixin(
         """
 
         # must have a close tag or an entity reference to qualify
-        if not (re.search(r'</(\w+)>', s) or re.search(r'&#?\w+;', s)):
+        if not re.search(r'</(\w+)>', s) and not re.search(r'&#?\w+;', s):
             return False
 
         # all tags must be in a restricted subset of valid HTML tags
@@ -653,10 +649,13 @@ class XMLParserMixin(
             return False
 
         # all entities must have been defined as valid HTML entities
-        if any((e for e in re.findall(r'&(\w+);', s) if e not in html.entities.entitydefs)):
-            return False
-
-        return True
+        return not any(
+            (
+                e
+                for e in re.findall(r'&(\w+);', s)
+                if e not in html.entities.entitydefs
+            )
+        )
 
     def _map_to_standard_prefix(self, name):
         colonpos = name.find(':')
@@ -664,7 +663,7 @@ class XMLParserMixin(
             prefix = name[:colonpos]
             suffix = name[colonpos+1:]
             prefix = self.namespacemap.get(prefix, prefix)
-            name = prefix + ':' + suffix
+            name = f'{prefix}:{suffix}'
         return name
 
     def _get_attribute(self, attrs_d, name):
@@ -677,14 +676,13 @@ class XMLParserMixin(
             return 0
         if self.contentparams['type'].endswith('+xml'):
             return 0
-        if self.contentparams['type'].endswith('/xml'):
-            return 0
-        return 1
+        return 0 if self.contentparams['type'].endswith('/xml') else 1
 
     @staticmethod
     def _enforce_href(attrs_d):
-        href = attrs_d.get('url', attrs_d.get('uri', attrs_d.get('href', None)))
-        if href:
+        if href := attrs_d.get(
+            'url', attrs_d.get('uri', attrs_d.get('href', None))
+        ):
             try:
                 del attrs_d['url']
             except KeyError:
@@ -705,21 +703,20 @@ class XMLParserMixin(
 
     def _get_context(self):
         if self.insource:
-            context = self.sourcedata
+            return self.sourcedata
         elif self.inimage and 'image' in self.feeddata:
-            context = self.feeddata['image']
+            return self.feeddata['image']
         elif self.intextinput:
-            context = self.feeddata['textinput']
+            return self.feeddata['textinput']
         elif self.inentry:
-            context = self.entries[-1]
+            return self.entries[-1]
         else:
-            context = self.feeddata
-        return context
+            return self.feeddata
 
     def _save_author(self, key, value, prefix='author'):
         context = self._get_context()
-        context.setdefault(prefix + '_detail', FeedParserDict())
-        context[prefix + '_detail'][key] = value
+        context.setdefault(f'{prefix}_detail', FeedParserDict())
+        context[f'{prefix}_detail'][key] = value
         self._sync_author_detail()
         context.setdefault('authors', [FeedParserDict()])
         context['authors'][-1][key] = value
@@ -731,12 +728,11 @@ class XMLParserMixin(
 
     def _sync_author_detail(self, key='author'):
         context = self._get_context()
-        detail = context.get('%ss' % key, [FeedParserDict()])[-1]
-        if detail:
+        if detail := context.get(f'{key}s', [FeedParserDict()])[-1]:
             name = detail.get('name')
             email = detail.get('email')
             if name and email:
-                context[key] = '%s (%s)' % (name, email)
+                context[key] = f'{name} ({email})'
             elif name:
                 context[key] = name
             elif email:
@@ -745,9 +741,11 @@ class XMLParserMixin(
             author, email = context.get(key), None
             if not author:
                 return
-            emailmatch = re.search(r"(([a-zA-Z0-9_.+-]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(]?))(\?subject=\S+)?", author)
-            if emailmatch:
-                email = emailmatch.group(0)
+            if emailmatch := re.search(
+                r"(([a-zA-Z0-9_.+-]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(]?))(\?subject=\S+)?",
+                author,
+            ):
+                email = emailmatch[0]
                 # probably a better way to do the following, but it passes
                 # all the tests
                 author = author.replace(email, '')
@@ -761,7 +759,7 @@ class XMLParserMixin(
                     author = author[:-1]
                 author = author.strip()
             if author or email:
-                context.setdefault('%s_detail' % key, detail)
+                context.setdefault(f'{key}_detail', detail)
             if author:
                 detail['name'] = author
             if email:

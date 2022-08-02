@@ -110,7 +110,7 @@ def _build_urllib2_request(url, agent, accept_header, etag, modified, referrer, 
         request.add_header('Referer', referrer)
     request.add_header('Accept-encoding', 'gzip, deflate')
     if auth:
-        request.add_header('Authorization', 'Basic %s' % auth)
+        request.add_header('Authorization', f'Basic {auth}')
     if accept_header:
         request.add_header('Accept', accept_header)
     # use this for whatever -- cookies, special headers, etc
@@ -133,7 +133,7 @@ def get(url, etag=None, modified=None, agent=None, referrer=None, handlers=None,
     if url.startswith('feed:http'):
         url = url[5:]
     elif url.startswith('feed:'):
-        url = 'http:' + url[5:]
+        url = f'http:{url[5:]}'
     if not agent:
         from . import USER_AGENT
         agent = USER_AGENT
@@ -208,8 +208,7 @@ def get(url, etag=None, modified=None, agent=None, referrer=None, handlers=None,
         if etag:
             result['etag'] = etag
     if 'last-modified' in result['headers']:
-        modified = result['headers'].get('last-modified', '')
-        if modified:
+        if modified := result['headers'].get('last-modified', ''):
             result['modified'] = modified
             result['modified_parsed'] = _parse_date(modified)
     if isinstance(f.url, bytes):

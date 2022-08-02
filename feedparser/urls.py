@@ -69,15 +69,11 @@ def convert_to_idn(url):
     except UnicodeEncodeError:
         # the url needs to be converted to idn notation
         host = parts[1].rsplit(':', 1)
-        newhost = []
-        port = ''
-        if len(host) == 2:
-            port = host.pop()
-        for h in host[0].split('.'):
-            newhost.append(h.encode('idna').decode('utf-8'))
+        port = host.pop() if len(host) == 2 else ''
+        newhost = [h.encode('idna').decode('utf-8') for h in host[0].split('.')]
         parts[1] = '.'.join(newhost)
         if port:
-            parts[1] += ':' + port
+            parts[1] += f':{port}'
         return urllib.parse.urlunsplit(parts)
     else:
         return url
@@ -94,13 +90,9 @@ def make_safe_absolute_uri(base, rel=None):
             scheme = urllib.parse.urlparse(base)[0]
         except ValueError:
             return ''
-        if not scheme or scheme in ACCEPTABLE_URI_SCHEMES:
-            return base
-        return ''
+        return base if not scheme or scheme in ACCEPTABLE_URI_SCHEMES else ''
     uri = _urljoin(base, rel)
-    if uri.strip().split(':', 1)[0] not in ACCEPTABLE_URI_SCHEMES:
-        return ''
-    return uri
+    return uri if uri.strip().split(':', 1)[0] in ACCEPTABLE_URI_SCHEMES else ''
 
 
 class RelativeURIResolver(BaseHTMLProcessor):

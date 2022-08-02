@@ -104,10 +104,7 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         """
 
         tag = match.group(1)
-        if tag in self.elements_no_end_tag:
-            return '<' + tag + ' />'
-        else:
-            return '<' + tag + '></' + tag + '>'
+        return f'<{tag} />' if tag in self.elements_no_end_tag else f'<{tag}></{tag}>'
 
     # By declaring these methods and overriding their compiled code
     # with the code from sgmllib, the original code will execute in
@@ -128,9 +125,12 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
 
     def parse_starttag(self, i):
         j = self.__parse_starttag(i)
-        if self._type == 'application/xhtml+xml':
-            if j > 2 and self.rawdata[j-2:j] == '/>':
-                self.unknown_endtag(self.lasttag)
+        if (
+            self._type == 'application/xhtml+xml'
+            and j > 2
+            and self.rawdata[j - 2 : j] == '/>'
+        ):
+            self.unknown_endtag(self.lasttag)
         return j
 
     def feed(self, data):
@@ -173,12 +173,12 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         :rtype: None
         """
 
-        # Called for each start tag
-        # attrs is a list of (attr, value) tuples
-        # e.g. for <pre class='screen'>, tag='pre', attrs=[('class', 'screen')]
-        uattrs = []
         strattrs = ''
         if attrs:
+            # Called for each start tag
+            # attrs is a list of (attr, value) tuples
+            # e.g. for <pre class='screen'>, tag='pre', attrs=[('class', 'screen')]
+            uattrs = []
             for key, value in attrs:
                 value = value.replace('>', '&gt;')
                 value = value.replace('<', '&lt;')
@@ -190,9 +190,9 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
                 for key, value in uattrs
             )
         if tag in self.elements_no_end_tag:
-            self.pieces.append('<%s%s />' % (tag, strattrs))
+            self.pieces.append(f'<{tag}{strattrs} />')
         else:
-            self.pieces.append('<%s%s>' % (tag, strattrs))
+            self.pieces.append(f'<{tag}{strattrs}>')
 
     def unknown_endtag(self, tag):
         """
@@ -203,7 +203,7 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         # Called for each end tag, e.g. for </pre>, tag will be 'pre'
         # Reconstruct the original end tag.
         if tag not in self.elements_no_end_tag:
-            self.pieces.append("</%s>" % tag)
+            self.pieces.append(f"</{tag}>")
 
     def handle_charref(self, ref):
         """
@@ -214,15 +214,11 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         # Called for each character reference, e.g. '&#160;' will extract '160'
         # Reconstruct the original character reference.
         ref = ref.lower()
-        if ref.startswith('x'):
-            value = int(ref[1:], 16)
-        else:
-            value = int(ref)
-
+        value = int(ref[1:], 16) if ref.startswith('x') else int(ref)
         if value in _cp1252:
-            self.pieces.append('&#%s;' % hex(ord(_cp1252[value]))[1:])
+            self.pieces.append(f'&#{hex(ord(_cp1252[value]))[1:]};')
         else:
-            self.pieces.append('&#%s;' % ref)
+            self.pieces.append(f'&#{ref};')
 
     def handle_entityref(self, ref):
         """
@@ -233,9 +229,9 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         # Called for each entity reference, e.g. '&copy;' will extract 'copy'
         # Reconstruct the original entity reference.
         if ref in html.entities.name2codepoint or ref == 'apos':
-            self.pieces.append('&%s;' % ref)
+            self.pieces.append(f'&{ref};')
         else:
-            self.pieces.append('&amp;%s' % ref)
+            self.pieces.append(f'&amp;{ref}')
 
     def handle_data(self, text):
         """
@@ -256,7 +252,7 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
 
         # Called for HTML comments, e.g. <!-- insert Javascript code here -->
         # Reconstruct the original comment.
-        self.pieces.append('<!--%s-->' % text)
+        self.pieces.append(f'<!--{text}-->')
 
     def handle_pi(self, text):
         """
@@ -266,7 +262,7 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
 
         # Called for each processing instruction, e.g. <?instruction>
         # Reconstruct original processing instruction.
-        self.pieces.append('<?%s>' % text)
+        self.pieces.append(f'<?{text}>')
 
     def handle_decl(self, text):
         """
@@ -278,7 +274,7 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         # <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
         #     "http://www.w3.org/TR/html4/loose.dtd">
         # Reconstruct original DOCTYPE
-        self.pieces.append('<!%s>' % text)
+        self.pieces.append(f'<!{text}>')
 
     _new_declname_match = re.compile(r'[a-zA-Z][-_.a-zA-Z0-9:]*\s*').match
 
@@ -293,13 +289,10 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         n = len(rawdata)
         if i == n:
             return None, -1
-        m = self._new_declname_match(rawdata, i)
-        if m:
+        if m := self._new_declname_match(rawdata, i):
             s = m.group()
             name = s.strip()
-            if (i + len(s)) == n:
-                return None, -1  # end of buffer
-            return name.lower(), m.end()
+            return (None, -1) if (i + len(s)) == n else (name.lower(), m.end())
         else:
             self.handle_data(rawdata)
             # self.updatepos(declstartpos, i)
@@ -311,7 +304,7 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         :rtype: str
         """
 
-        return '&#%s;' % name
+        return f'&#{name};'
 
     def convert_entityref(self, name):
         """
@@ -319,7 +312,7 @@ class BaseHTMLProcessor(sgmllib.SGMLParser):
         :rtype: str
         """
 
-        return '&%s;' % name
+        return f'&{name};'
 
     def output(self):
         """Return processed HTML as a single string.

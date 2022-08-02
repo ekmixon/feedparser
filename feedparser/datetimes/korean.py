@@ -69,7 +69,7 @@ def _parse_date_nate(dateString):
         hour += 12
     hour = str(hour)
     if len(hour) == 1:
-        hour = '0' + hour
+        hour = f'0{hour}'
     w3dtfdate = '%(year)s-%(month)s-%(day)sT%(hour)s:%(minute)s:%(second)s%(zonediff)s' % \
                 {
                     'year': m.group(1),

@@ -91,8 +91,8 @@ def _parse_date_w3dtf(datestr):
         except ValueError:
             return None
         if parts[2].startswith('-'):
-            tzhour = tzhour * -1
-            tzmin = tzmin * -1
+            tzhour *= -1
+            tzmin *= -1
     else:
         tzhour = timezonenames.get(parts[2], 0)
         tzmin = 0

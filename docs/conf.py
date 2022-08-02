@@ -6,7 +6,7 @@ import sys
 
 content = (pathlib.Path(__file__).parent.parent / 'feedparser/__init__.py').read_text()
 match = re.search(r"""__version__ = ['"](?P<version>.+?)['"]""", content)
-version = match.group('version')
+version = match['version']
 release = version
 
 # project information

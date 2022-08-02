@@ -77,15 +77,13 @@ def _parse_date_rfc822(date):
     try:
         day = int(parts[0])
     except ValueError:
-        # Check if the day and month are swapped.
-        if months.get(parts[0][:3]):
-            try:
-                day = int(parts[1])
-            except ValueError:
-                return None
-            month = months.get(parts[0][:3])
-        else:
+        if not months.get(parts[0][:3]):
             return None
+        try:
+            day = int(parts[1])
+        except ValueError:
+            return None
+        month = months.get(parts[0][:3])
     if not month:
         return None
 
@@ -120,12 +118,8 @@ def _parse_date_rfc822(date):
     # Handle timezones like '-0500', '+0500', and 'EST'
     if parts[4] and parts[4][0] in ('-', '+'):
         try:
-            if ':' in parts[4]:
-                timezone_hours = int(parts[4][1:3])
-                timezone_minutes = int(parts[4][4:])
-            else:
-                timezone_hours = int(parts[4][1:3])
-                timezone_minutes = int(parts[4][3:])
+            timezone_minutes = int(parts[4][4:]) if ':' in parts[4] else int(parts[4][3:])
+            timezone_hours = int(parts[4][1:3])
         except ValueError:
             return None
         if parts[4].startswith('-'):

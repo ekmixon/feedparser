@@ -120,7 +120,7 @@ def _open_resource(url_file_stream_or_string, etag, modified, agent, referrer, h
     try:
         with open(url_file_stream_or_string, 'rb') as f:
             data = f.read()
-    except (IOError, UnicodeEncodeError, TypeError, ValueError):
+    except (IOError, TypeError, ValueError):
         # if url_file_stream_or_string is a str object that
         # cannot be converted to the encoding returned by
         # sys.getfilesystemencoding(), a UnicodeEncodeError
@@ -133,9 +133,11 @@ def _open_resource(url_file_stream_or_string, etag, modified, agent, referrer, h
         return data
 
     # treat url_file_stream_or_string as string
-    if not isinstance(url_file_stream_or_string, bytes):
-        return url_file_stream_or_string.encode('utf-8')
-    return url_file_stream_or_string
+    return (
+        url_file_stream_or_string
+        if isinstance(url_file_stream_or_string, bytes)
+        else url_file_stream_or_string.encode('utf-8')
+    )
 
 
 class LooseFeedParser(LooseXMLParser, XMLParserMixin, BaseHTMLProcessor):

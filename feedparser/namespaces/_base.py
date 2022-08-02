@@ -58,20 +58,19 @@ class Namespace(object):
     }
 
     def _start_rss(self, attrs_d):
-        versionmap = {
-            '0.91': 'rss091u',
-            '0.92': 'rss092',
-            '0.93': 'rss093',
-            '0.94': 'rss094',
-        }
-
         # If we're here then this is an RSS feed.
         # If we don't have a version or have a version that starts with something
         # other than RSS then there's been a mistake. Correct it.
         if not self.version or not self.version.startswith('rss'):
             attr_version = attrs_d.get('version', '')
-            version = versionmap.get(attr_version)
-            if version:
+            versionmap = {
+                '0.91': 'rss091u',
+                '0.92': 'rss092',
+                '0.93': 'rss093',
+                '0.94': 'rss094',
+            }
+
+            if version := versionmap.get(attr_version):
                 self.version = version
             elif attr_version.startswith('2.'):
                 self.version = 'rss20'
@@ -94,16 +93,12 @@ class Namespace(object):
 
     def _start_feed(self, attrs_d):
         self.infeed = 1
-        versionmap = {'0.1': 'atom01',
-                      '0.2': 'atom02',
-                      '0.3': 'atom03'}
         if not self.version:
             attr_version = attrs_d.get('version')
-            version = versionmap.get(attr_version)
-            if version:
-                self.version = version
-            else:
-                self.version = 'atom'
+            versionmap = {'0.1': 'atom01',
+                          '0.2': 'atom02',
+                          '0.3': 'atom03'}
+            self.version = version if (version := versionmap.get(attr_version)) else 'atom'
 
     def _end_channel(self):
         self.infeed = 0
@@ -249,8 +244,7 @@ class Namespace(object):
         self.inentry = 1
         self.guidislink = 0
         self.title_depth = -1
-        id = self._get_attribute(attrs_d, 'rdf:about')
-        if id:
+        if id := self._get_attribute(attrs_d, 'rdf:about'):
             context = self._get_context()
             context['id'] = id
         self._cdf_common(attrs_d)
@@ -381,10 +375,10 @@ class Namespace(object):
     def _end_title(self):
         if self.svgOK:
             return
-        value = self.pop_content('title')
-        if not value:
+        if value := self.pop_content('title'):
+            self.title_depth = self.depth
+        else:
             return
-        self.title_depth = self.depth
 
     def _start_description(self, attrs_d):
         context = self._get_context()
@@ -459,16 +453,14 @@ class Namespace(object):
 
     def _end_source(self):
         self.insource = 0
-        value = self.pop('source')
-        if value:
+        if value := self.pop('source'):
             self.sourcedata['title'] = value
         self._get_context()['source'] = copy.deepcopy(self.sourcedata)
         self.sourcedata.clear()
 
     def _start_content(self, attrs_d):
         self.push_content('content', attrs_d, 'text/plain', 1)
-        src = attrs_d.get('src')
-        if src:
+        if src := attrs_d.get('src'):
             self.contentparams['src'] = src
         self.push('content', 1)
 
@@ -482,8 +474,8 @@ class Namespace(object):
 
     def _end_content(self):
         copyToSummary = self.map_content_type(self.contentparams.get('type')) in ({'text/plain'} | self.html_types)
-        value = self.pop_content('content')
         if copyToSummary:
+            value = self.pop_content('content')
             self._save('summary', value)
 
     _end_body = _end_content

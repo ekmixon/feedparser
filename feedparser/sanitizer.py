@@ -752,12 +752,11 @@ class HTMLSanitizer(BaseHTMLProcessor):
                 self.unacceptablestack += 1
 
             # add implicit namespaces to html5 inline svg/mathml
-            if self._type.endswith('html'):
-                if not dict(attrs).get('xmlns'):
-                    if tag == 'svg':
-                        attrs.append(('xmlns', 'http://www.w3.org/2000/svg'))
-                    if tag == 'math':
-                        attrs.append(('xmlns', 'http://www.w3.org/1998/Math/MathML'))
+            if self._type.endswith('html') and not dict(attrs).get('xmlns'):
+                if tag == 'svg':
+                    attrs.append(('xmlns', 'http://www.w3.org/2000/svg'))
+                if tag == 'math':
+                    attrs.append(('xmlns', 'http://www.w3.org/1998/Math/MathML'))
 
             # not otherwise acceptable, perhaps it is MathML or SVG?
             if tag == 'math' and ('xmlns', 'http://www.w3.org/1998/Math/MathML') in attrs:
@@ -788,16 +787,17 @@ class HTMLSanitizer(BaseHTMLProcessor):
                 return
 
         # declare xlink namespace, if needed
-        if self.mathmlOK or self.svgOK:
-            if any((a for a in attrs if a[0].startswith('xlink:'))):
-                if not ('xmlns:xlink', 'http://www.w3.org/1999/xlink') in attrs:
-                    attrs.append(('xmlns:xlink', 'http://www.w3.org/1999/xlink'))
+        if (
+            (self.mathmlOK or self.svgOK)
+            and any((a for a in attrs if a[0].startswith('xlink:')))
+            and ('xmlns:xlink', 'http://www.w3.org/1999/xlink') not in attrs
+        ):
+            attrs.append(('xmlns:xlink', 'http://www.w3.org/1999/xlink'))
 
         clean_attrs = []
         for key, value in self.normalize_attrs(attrs):
             if key == 'style' and 'style' in acceptable_attributes:
-                clean_value = self.sanitize_style(value)
-                if clean_value:
+                if clean_value := self.sanitize_style(value):
                     clean_attrs.append((key, clean_value))
             elif key in acceptable_attributes:
                 key = keymap.get(key, key)
@@ -812,7 +812,7 @@ class HTMLSanitizer(BaseHTMLProcessor):
             if tag in self.unacceptable_elements_with_end_tag:
                 self.unacceptablestack -= 1
             if self.mathmlOK and tag in self.mathml_elements:
-                if tag == 'math' and self.mathmlOK:
+                if tag == 'math':
                     self.mathmlOK -= 1
             elif self.svgOK and tag in self.svg_elements:
                 tag = self.svg_elem_map.get(tag, tag)
@@ -849,7 +849,7 @@ class HTMLSanitizer(BaseHTMLProcessor):
             if not value:
                 continue
             if prop.lower() in self.acceptable_css_properties:
-                clean.append(prop + ': ' + value + ';')
+                clean.append(f'{prop}: {value};')
             elif prop.split('-')[0].lower() in ['background', 'border', 'margin', 'padding']:
                 for keyword in value.split():
                     if (
@@ -858,9 +858,9 @@ class HTMLSanitizer(BaseHTMLProcessor):
                     ):
                         break
                 else:
-                    clean.append(prop + ': ' + value + ';')
+                    clean.append(f'{prop}: {value};')
             elif self.svgOK and prop.lower() in self.acceptable_svg_properties:
-                clean.append(prop + ': ' + value + ';')
+                clean.append(f'{prop}: {value};')
 
         return ' '.join(clean)
 
@@ -868,10 +868,7 @@ class HTMLSanitizer(BaseHTMLProcessor):
         ret = super().parse_comment(i, report)
         if ret >= 0:
             return ret
-        # if ret == -1, this may be a malicious attempt to circumvent
-        # sanitization, or a page-destroying unclosed comment
-        match = re.compile(r'--[^>]*>').search(self.rawdata, i+4)
-        if match:
+        if match := re.compile(r'--[^>]*>').search(self.rawdata, i + 4):
             return match.end()
         # unclosed comment; deliberately fail to handle_data()
         return len(self.rawdata)
@@ -923,11 +920,7 @@ def replace_doctype(data):
     # Find the DOCTYPE declaration and check the feed type.
     doctype_results = RE_DOCTYPE_PATTERN.findall(head)
     doctype = doctype_results and doctype_results[0] or b''
-    if b'netscape' in doctype.lower():
-        version = 'rss091n'
-    else:
-        version = None
-
+    version = 'rss091n' if b'netscape' in doctype.lower() else None
     # Re-insert the safe ENTITY declarations if a DOCTYPE was found.
     replacement = b''
     if len(doctype_results) == 1 and entity_results:

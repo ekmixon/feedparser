@@ -490,11 +490,11 @@ class TestConvertToIdn(unittest.TestCase):
         self.assertEqual(r, 'http://example.test/')
 
     def test_idn(self):
-        r = feedparser.urls.convert_to_idn('http://%s/' % (self.hostname,))
+        r = feedparser.urls.convert_to_idn(f'http://{self.hostname}/')
         self.assertEqual(r, 'http://xn--hxajbheg2az3al.xn--jxalpdlp/')
 
     def test_port(self):
-        r = feedparser.urls.convert_to_idn('http://%s:8080/' % (self.hostname,))
+        r = feedparser.urls.convert_to_idn(f'http://{self.hostname}:8080/')
         self.assertEqual(r, 'http://xn--hxajbheg2az3al.xn--jxalpdlp:8080/')
 
 
@@ -575,7 +575,7 @@ class TestHTTPStatus(unittest.TestCase):
         e = [v for k, v in f.headers.items() if k.lower() == 'etag'][0]
         ms = f.updated
         mt = f.updated_parsed
-        md = datetime.datetime(*mt[0:7])
+        md = datetime.datetime(*mt[:7])
         self.assertTrue(isinstance(mt, time.struct_time))
         self.assertTrue(isinstance(md, datetime.datetime))
         # test that sending back the etag results in a 304
@@ -898,8 +898,7 @@ def get_description(xmlfile, data):
     Expect:      feed['title'] == 'Example feed'
     -->
     """
-    skip_results = skip_re.search(data)
-    if skip_results:
+    if skip_results := skip_re.search(data):
         skip_unless = skip_results.group(1).strip()
     else:
         skip_unless = '1'
@@ -907,7 +906,7 @@ def get_description(xmlfile, data):
     if not search_results:
         raise RuntimeError("can't parse %s" % xmlfile)
     description, eval_string = [s.strip() for s in list(search_results.groups())]
-    description = xmlfile + ": " + description.decode('utf8')
+    description = f"{xmlfile}: " + description.decode('utf8')
     return description, eval_string, skip_unless
 
 
@@ -943,15 +942,12 @@ def runtests():
         add_to = TestCase
         if xmlfile in encodingfiles:
             add_to = TestEncodings
-        elif xmlfile in entitiesfiles:
-            add_to = (TestStrictParser, TestLooseParser)
-        elif xmlfile in wellformedfiles:
+        elif xmlfile in entitiesfiles or xmlfile in wellformedfiles:
             add_to = (TestStrictParser, TestLooseParser)
         elif xmlfile in jsonfiles:
             add_to = TestJsonParser
-        f = open(xmlfile, 'rb')
-        data = f.read()
-        f.close()
+        with open(xmlfile, 'rb') as f:
+            data = f.read()
         if 'encoding' in xmlfile:
             data = convert_to_utf8(data)
             if data is None:

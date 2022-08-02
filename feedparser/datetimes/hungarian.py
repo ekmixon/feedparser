@@ -56,10 +56,10 @@ def _parse_date_hungarian(date_string):
     month = _hungarian_months[m.group(2)]
     day = m.group(3)
     if len(day) == 1:
-        day = '0' + day
+        day = f'0{day}'
     hour = m.group(4)
     if len(hour) == 1:
-        hour = '0' + hour
+        hour = f'0{hour}'
     w3dtfdate = '%(year)s-%(month)s-%(day)sT%(hour)s:%(minute)s%(zonediff)s' % \
                 {
                     'year': m.group(1),
